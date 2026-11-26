@@ -1,0 +1,10 @@
+{
+  "name": "dsh-context-diet",
+  "private": true,
+  "type": "module",
+  "description": "Host-only DSH plugin: fold aged-out tool results out of the session surface before they are re-sent every step.",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs"
+  }
+}

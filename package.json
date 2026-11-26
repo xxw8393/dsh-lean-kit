@@ -1,0 +1,39 @@
+{
+  "name": "dsh-lean-kit",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "DSH 省流 bundle：preset-lean + context-diet / session-hygiene / image-diet / agents-rules",
+  "files": [
+    "cordis.patch.yml",
+    "plugins",
+    "install.sh",
+    "verify.sh",
+    "strip-inline.py",
+    "README.md",
+    "LICENSE",
+    "docs",
+    "scripts"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "bundle",
+    "preset",
+    "context",
+    "tokens"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/<owner>/dsh-lean-kit.git"
+  },
+  "scripts": {
+    "selftest": "node plugins/context-diet/selftest.mjs && node plugins/session-hygiene/selftest.mjs && node plugins/image-diet/selftest.mjs",
+    "verify": "bash verify.sh"
+  }
+}

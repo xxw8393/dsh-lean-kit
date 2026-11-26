@@ -1,0 +1,17 @@
+{
+  "name": "dsh-session-hygiene",
+  "version": "1.0.0",
+  "private": true,
+  "description": "会话卫生：达阈值时注入自检提醒（宿主半边），并在浏览器侧一键交接到新会话（client 半边）",
+  "type": "module",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web"
+    }
+  }
+}

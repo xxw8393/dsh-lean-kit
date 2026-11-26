@@ -1,0 +1,185 @@
+# dsh-lean-kit — 省流模式(preset lean) + 四个宿主插件（agents-rules / session-hygiene / context-diet / image-diet），
+# 作为一个 profile bundle 层加载。
+# 相对路径 name 由加载器按「本 patch 文件所在目录」锚定（anchorInsertedPluginNames），
+# 所以整个包可被 pnpm 安装到任意 profile 的 node_modules 下面。
+# 安装：bash install.sh <profile>（或 GUI 设置 → 插件 → 安装本目录）
+# 校验：bash verify.sh <profile>
+# ── preset-lean「省流模式」— 说明与回滚见 docs/lean-preset.md
+#    0.2.1-rc.2 基线来自 @deepseek-ai/dsh-web-app/presets/standard.patch.yml，
+#    只保留三处省流改动：agent-instructions 上限、skill 目录仅名称、压缩/裁剪更早更狠；
+#    并去掉 subagent_fork / workflow / ralph（最大的三段 tool schema）。
+- insert:
+    - id: preset-lean
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: lean
+        name: 省流模式
+        description: standard 能力 + 更小上下文：精简工具目录、缩短 skill 目录、更早压缩、更紧的工具结果裁剪。
+        order: 6
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: You are a coding agent powered by the {{model}} model.
+
+          # Kept: only injects when AGENTS.md / CLAUDE.md exists. maxBytes bounds it.
+          - id: agent-instructions
+            name: '@deepseek-ai/dsh-agent-instructions'
+            config:
+              maxBytes: 16384
+
+          - id: tool-bash
+            name: '@deepseek-ai/dsh-tool-bash'
+            disabled: !!js process.platform === 'win32'
+          - id: tool-pwsh
+            name: '@deepseek-ai/dsh-tool-pwsh'
+            disabled: !!js process.platform !== 'win32'
+          - id: tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+          - id: tool-fs-search
+            name: '@deepseek-ai/dsh-tool-fs-search'
+            config:
+              sampleOverCapGlobResults: false
+          - id: tool-jobs
+            name: '@deepseek-ai/dsh-tool-jobs'
+
+          - id: skill-filesystem
+            name: '@deepseek-ai/dsh-skill-filesystem'
+          - id: tool-skill
+            name: '@deepseek-ai/dsh-tool-skill'
+            config:
+              # LEAN-C: 省流目录只留 skill 名。dsh-tool-skill 最低取值 3
+              # （assertPositiveInteger(..., 3)）；实测 46 条目 4432 B -> ~1.4KB，
+              # 约省 810 tokens/请求。想要回描述：60（精简）或 500（全量）。
+              catalogDescriptionMaxLength: 3
+
+          - id: planning
+            name: cordis:group
+            group: true
+            isolate:
+              planMode: true
+            config:
+              - id: plan-mode
+                name: '@deepseek-ai/dsh-plan-mode'
+                config:
+                  section: |
+                    You are in plan mode. Stay in plan mode until the user approves your plan through exit_plan_mode or switches the session mode. Imperative language to implement changes means plan the implementation, not execute it. A user's conversational agreement — including an answer confirming something you asked — approves nothing and does not end plan mode; fold the confirmed decision into the plan and submit it through exit_plan_mode.
+
+                    Explore first. Use non-mutating reads, searches, static analysis, and checks to ground the plan in the actual repository. Do not edit or write files, change configuration, run formatters or code generation that rewrites tracked files, commit, or otherwise carry out the plan. Prefer existing functions and patterns over new machinery.
+
+                    The tool catalog stays the same across modes for request-cache stability. These plan-mode rules override any later tool description or guidance that suggests using mutation tools; those tools remain listed to keep the tool catalog unchanged. Do not use todo_write to track this planning phase: it tracks implementation after an approved plan, while the plan itself belongs in exit_plan_mode.
+
+                    Resolve discoverable facts by inspection. Use ask_user_question only for user-owned choices or material ambiguity that inspection cannot answer. Do not ask the user where code lives or how current behavior works when you can find out.
+
+                    Make the plan decision-complete: state the goal and success criteria; group implementation changes by subsystem; identify public API, schema, and data-flow changes; cover edge cases, failure modes, tests, acceptance criteria, and explicit assumptions. Keep it concise enough to review but detailed enough that another engineer can implement it without making design decisions.
+
+                    When ready, call exit_plan_mode with the complete plan markdown, starting with a # title. Make exit_plan_mode the only and final tool call in that assistant response: it presents the plan for approval, and implementation begins only in a later step after approval. Do not paste the final plan as a plain reply or ask "should I proceed?" through prose or ask_user_question. If review rejects it, incorporate the feedback and present again. If the review channel is unavailable or aborted, stay in plan mode and ask the user to switch modes manually; do not proceed with implementation.
+
+          # 0.2.1 默认 thresholdRatio 0.8 / retainRatio 0.16 → 这里仍用 0.6 / 0.15（更早压缩）。
+          - id: compaction
+            name: cordis:group
+            group: true
+            isolate:
+              compaction: true
+              toolResultPruner: true
+            config:
+              - id: compaction-basic
+                name: '@deepseek-ai/dsh-compaction-basic'
+                config:
+                  thresholdRatio: 0.6
+                  retainRatio: 0.15
+              - id: command-compact
+                name: '@deepseek-ai/dsh-command-compact'
+              - id: tool-result-pruner
+                name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+                config:
+                  thresholdChars: 8192
+                  headChars: 3072
+                  tailChars: 768
+
+          # Kept: subagents are the cheap way to keep heavy exploration OUT of
+          # this session's context. Removed: tool-subagent-fork / workflow-ptc /
+          # tool-workflow (fork 继承整段父上下文；workflow 是最大的 tool schema)。
+          - id: delegation
+            name: cordis:group
+            group: true
+            isolate:
+              workflowEngine: true
+            config:
+              # 0.2.2-rc.1 起 list_agents / send_message / interrupt_agent 已并进
+              # dsh-tool-subagent-control 主入口，`./list-agents` 子路径导出被删除；
+              # 保留旧条目会让该 fiber 永不启动 → preset 判 invalid（新建会话失败）。
+              - id: tool-subagent-control
+                name: '@deepseek-ai/dsh-tool-subagent-control'
+              - id: tool-subagent
+                name: '@deepseek-ai/dsh-tool-subagent'
+                config:
+                  provider: spawn
+                  toolName: subagent
+
+          - id: tool-ask-user
+            name: '@deepseek-ai/dsh-tool-ask-user'
+          - id: tool-todo
+            name: '@deepseek-ai/dsh-tool-todo'
+            config:
+              allowParallelInProgress: true
+          - id: tool-web
+            name: '@deepseek-ai/dsh-tool-web'
+            config:
+              fetch: true
+              searchTimeoutMs: 60000
+
+# ── agents-rules：把 ~/.agents/rules/*.mdc 作为 system-reminder 注入每个请求（宿主级，覆盖该 profile 的所有 preset）
+#    实现：./plugins/agents-rules.mjs（相对本 patch 所在目录解析）
+- insert:
+    - id: agents-rules
+      name: ./plugins/agents-rules.mjs
+      config:
+        dir: "~/.agents/rules"
+        maxBytes: 12288
+        header: "用户全局规则（始终生效）；项目 AGENTS.md 与更具体的指令优先。"
+
+# ── session-hygiene：用会话日志的确定性信号（最近一次请求总输入 tokens / 是否压缩 / 真实人类请求数 / 跨天）
+#    达阈值时注入一次「该不该交接会话」的自检提醒；由 agent/pre-step 增量扫描驱动，**不用定时任务**。
+#    实现：./plugins/session-hygiene/；说明与回滚：docs/session-hygiene.md
+- insert:
+    - id: session-hygiene
+      name: ./plugins/session-hygiene/index.mjs
+      config:
+        enabled: true
+        tokensWarn: 140000
+        tokensAlarm: 175000
+        promptsWarn: 6
+        promptsMinTokens: 90000
+        debugFile: ~/.dsh/session-hygiene.log
+
+# ── context-diet：把「已过期的工具输出」从会话表面上折叠，避免每一步都重发
+#    实现：./plugins/context-diet/；说明与回滚：docs/context-diet.md
+- insert:
+    - id: context-diet
+      name: ./plugins/context-diet/index.mjs
+      config:
+        enabled: true
+        keepRecent: 15
+        minChars: 500
+        headChars: 200
+        tailChars: 120
+        triggerTokens: 20000
+        debugFile: "~/.dsh/context-diet.log"
+
+
+# ── image-diet：把「过重」的图在请求投影里换成更小的附件引用（长边/像素/字节按图自适应，长边有下限兜底）
+#    实现：./plugins/image-diet/；说明与回滚：docs/image-diet.md
+#    编码复用宿主 attachments.readImageRequest（sharp，带变体缓存），不起子进程；旧图仍留在 attachments 里。
+- insert:
+    - id: image-diet
+      name: ./plugins/image-diet/index.mjs
+      config:
+        enabled: true
+        maxLongEdge: 1600
+        targetPixels: 1200000
+        minLongEdge: 1024
+        targetBytes: 900000
+        keepRecent: 0
+        cacheFile: "~/.dsh/cache/image-diet.json"
+        debugFile: "~/.dsh/image-diet.log"

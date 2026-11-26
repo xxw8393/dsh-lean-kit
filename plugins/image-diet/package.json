@@ -1,0 +1,10 @@
+{
+  "name": "dsh-image-diet",
+  "private": true,
+  "type": "module",
+  "description": "Host-only DSH plugin: shrink over-budget images per image (long edge / pixels / bytes) in the model request by replacing surface attachment references.",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs"
+  }
+}
