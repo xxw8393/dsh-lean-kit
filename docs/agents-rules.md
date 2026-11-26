@@ -96,3 +96,20 @@ host HMR 会自行 reconcile；老会话保持启动时的 revision。
 语言统一只是可读性收益（约 ±0.1k tokens/轮，属噪声）。
 
 **回滚**：删掉 profile patch 里的 `header:` 行；描述文本从 `/tmp/dsh-patch-backup-<ts>/` 取回。
+
+---
+
+## 附：开源化后的路径变更（2026-11-26 追加）
+
+> 本节锚定：2026-11-26 · 仓库 `dsh-lean-kit` · 分支 `main` · commit `80e49b2`（脏树无）· 目录 `~/dsh-lean-kit`。
+> 上文各节保持**当时的**路径写法（`~/.dsh/plugins/...`、`~/.dsh-bundles/...`），此处只做现态对照，不改写历史分析。
+
+| 项 | 当时 | 现态 |
+|---|---|---|
+| 实现目录（唯一真源） | `~/.dsh/plugins/<plugin>/` 或 `~/KMP/.dsh-bundles/lean-kit/` | `~/dsh-lean-kit/plugins/<plugin>/`（= GitHub `xxw8393/dsh-lean-kit`） |
+| profile 挂载 | `node_modules/dsh-lean-kit` 软链 → 旧目录 | 软链 → `~/dsh-lean-kit`（`desktop`、`web` 两个 profile 已改） |
+| 说明文档 | `.dsh-bundles/README-<topic>.md` | `docs/<topic>.md` |
+| 自测入口 | `node ~/.dsh/plugins/<plugin>/selftest.mjs` | `node plugins/<plugin>/selftest.mjs`（或 `npm run selftest`） |
+| 注入面核对脚本 | `.dsh-bundles/check-injection.sh` | `scripts/check-injection.sh` |
+
+验收探针（本次实跑）：`bash verify.sh web` / `bash verify.sh desktop` 均通过 —— 入口文件齐、三个 selftest 全绿、`preset` 里 25 个 `name:` 全部可解析。

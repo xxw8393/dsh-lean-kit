@@ -177,3 +177,21 @@ web     | top-level entries = 5  | session-hygiene mount = {"id":"session-hygien
 
 **锚定**：2026-10-28 15:52 · 插件 `./plugins/session-hygiene`
 （不在 git 仓库内；profile 侧软链 `~/.dsh/profiles/{desktop,web}/node_modules/dsh-lean-kit` → 本目录）· 工作区 `~/`。
+（2026-11-26 起本目录已是 GitHub `xxw8393/dsh-lean-kit` 仓库工作区，软链指向 `~/dsh-lean-kit`；详见文末追加节。）
+
+---
+
+## 附：开源化后的路径变更（2026-11-26 追加）
+
+> 本节锚定：2026-11-26 · 仓库 `dsh-lean-kit` · 分支 `main` · commit `80e49b2`（脏树无）· 目录 `~/dsh-lean-kit`。
+> 上文各节保持**当时的**路径写法（`~/.dsh/plugins/...`、`~/.dsh-bundles/...`），此处只做现态对照，不改写历史分析。
+
+| 项 | 当时 | 现态 |
+|---|---|---|
+| 实现目录（唯一真源） | `~/.dsh/plugins/<plugin>/` 或 `~/KMP/.dsh-bundles/lean-kit/` | `~/dsh-lean-kit/plugins/<plugin>/`（= GitHub `xxw8393/dsh-lean-kit`） |
+| profile 挂载 | `node_modules/dsh-lean-kit` 软链 → 旧目录 | 软链 → `~/dsh-lean-kit`（`desktop`、`web` 两个 profile 已改） |
+| 说明文档 | `.dsh-bundles/README-<topic>.md` | `docs/<topic>.md` |
+| 自测入口 | `node ~/.dsh/plugins/<plugin>/selftest.mjs` | `node plugins/<plugin>/selftest.mjs`（或 `npm run selftest`） |
+| 注入面核对脚本 | `.dsh-bundles/check-injection.sh` | `scripts/check-injection.sh` |
+
+验收探针（本次实跑）：`bash verify.sh web` / `bash verify.sh desktop` 均通过 —— 入口文件齐、三个 selftest 全绿、`preset` 里 25 个 `name:` 全部可解析。
