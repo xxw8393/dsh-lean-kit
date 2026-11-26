@@ -9,10 +9,12 @@
     "install.sh",
     "verify.sh",
     "strip-inline.py",
+    "check-preset.mjs",
+    "docs",
+    "scripts",
     "README.md",
     "LICENSE",
-    "docs",
-    "scripts"
+    ".github"
   ],
   "dsh": {
     "bundle": {
@@ -30,10 +32,17 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/<owner>/dsh-lean-kit.git"
+    "url": "git+https://github.com/xxw8393/dsh-lean-kit.git"
   },
   "scripts": {
     "selftest": "node plugins/context-diet/selftest.mjs && node plugins/session-hygiene/selftest.mjs && node plugins/image-diet/selftest.mjs",
     "verify": "bash verify.sh"
+  },
+  "homepage": "https://github.com/xxw8393/dsh-lean-kit#readme",
+  "bugs": {
+    "url": "https://github.com/xxw8393/dsh-lean-kit/issues"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

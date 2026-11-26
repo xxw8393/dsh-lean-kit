@@ -1,5 +1,7 @@
 # dsh-lean-kit
 
+[![selftest](https://github.com/xxw8393/dsh-lean-kit/actions/workflows/selftest.yml/badge.svg)](https://github.com/xxw8393/dsh-lean-kit/actions/workflows/selftest.yml) [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 给 [DeepSeek Harness](https://github.com/deepseek-ai/dsh) 用的「省流」插件包：一个 profile bundle 图层，装上即生效，改的是**每次请求的投影**，不动会话日志、不动人类可见的 transcript。
 
 - `preset-lean` —— 省流 preset：工具砍到 23 个、skills 只留名字、精简 persona
@@ -80,6 +82,11 @@ node plugins/image-diet/selftest.mjs
 ```
 
 发布前 bump `package.json` 的 `version`，然后 `npm pack`。
+
+## 仓库
+
+- Issue / PR：https://github.com/xxw8393/dsh-lean-kit
+- CI：每次 push 在 Node 20/22/24 上跑三个插件的 selftest，另做语法检查与「patch 不得出现本机绝对路径」检查
 
 ## License
 

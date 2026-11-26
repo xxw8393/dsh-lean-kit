@@ -1,0 +1,87 @@
+name: selftest
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: 三个插件的离线 selftest
+        run: |
+          for p in context-diet session-hygiene image-diet; do
+            echo "::group::$p"
+            node plugins/$p/selftest.mjs
+            echo "::endgroup::"
+          done
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 语法检查
+        run: |
+          for f in plugins/*.mjs plugins/*/index.mjs plugins/*/selftest.mjs plugins/*/client.js check-preset.mjs; do
+            node --check "$f"
+          done
+
+      - name: shell 语法检查
+        run: |
+          for f in install.sh verify.sh scripts/check-injection.sh; do
+            bash -n "$f"
+          done
+
+      - name: Python 语法检查
+        run: python3 -m py_compile strip-inline.py
+
+      - name: patch 里不得出现本机绝对路径
+        run: |
+          if grep -rn "/Users/\|/home/" cordis.patch.yml install.sh verify.sh; then
+            echo "::error::发现硬编码的绝对路径"
+            exit 1
+          fi
+
+  manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: package.json 结构与必需字段
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const root = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            const fail = (m) => { console.error("::error::" + m); process.exitCode = 1 };
+            if (root.dsh?.bundle?.patch !== "./cordis.patch.yml") fail("package.json 缺 dsh.bundle.patch");
+            for (const k of ["name", "version", "license", "description"]) if (!root[k]) fail("package.json 缺 " + k);
+            if (!fs.existsSync(root.dsh.bundle.patch)) fail("patch 文件不存在");
+            for (const p of ["context-diet", "session-hygiene", "image-diet"]) {
+              const m = JSON.parse(fs.readFileSync(`plugins/${p}/package.json`, "utf8"));
+              if (!m.name) fail(`${p}: 缺 name`);
+              if (!fs.existsSync(`plugins/${p}/index.mjs`)) fail(`${p}: 缺 index.mjs`);
+            }
+            const patch = fs.readFileSync("cordis.patch.yml", "utf8");
+            for (const id of ["agents-rules", "session-hygiene", "context-diet", "image-diet"]) {
+              if (!patch.includes(`id: ${id}`)) fail(`patch 里缺 ${id}`);
+            }
+          '
